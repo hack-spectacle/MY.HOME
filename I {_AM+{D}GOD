@@ -1,0 +1,16 @@
+local remote = game:GetService("ReplicatedStorage"):WaitForChild("RedShadowControl")
+local UIS = game:GetService("UserInputService")
+
+local modes = {"RedShadow", "Morph", "Entity"}  -- Entity = Normal Mode
+local current = 1
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        current = current + 1
+        if current > #modes then current = 1 end
+        
+        remote:FireServer(modes[current])
+        print("C[] → " .. modes[current])
+    end
+end)
