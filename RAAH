@@ -1,0 +1,179 @@
+-- ================================================
+-- C[] • RED SHADOW + MORPH + ENTITY MODE
+-- Normal = Entity | All Modes are Entities
+-- ServerScript (ServerScriptService)
+-- ================================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local Debris = game:GetService("Debris")
+
+local RedShadowRemote = Instance.new("RemoteEvent")
+RedShadowRemote.Name = "RedShadowControl"
+RedShadowRemote.Parent = ReplicatedStorage
+
+local activeMode = {}  -- "Morph", "Entity"
+
+local TARGET_USER_ID = 8595883253
+
+local function ApplyRedShadow(character)
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local hrp = character:WaitForChild("HumanoidRootPart", 5)
+    if not humanoid or not hrp then return end
+
+    humanoid.MaxHealth = 99999
+    humanoid.Health = 99999
+    humanoid.WalkSpeed = 26
+
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Color = Color3.fromRGB(8, 0, 0)
+            part.Material = Enum.Material.ForceField
+            part.Transparency = 0.08
+        end
+    end
+
+    local head = character:FindFirstChild("Head")
+    if head then
+        head.Color = Color3.fromRGB(18, 0, 0)
+        head.Material = Enum.Material.Neon
+        head.Shape = Enum.PartType.Ball
+        head.Size = Vector3.new(2.6, 2.6, 2.6)
+        
+        for i = -1, 1, 2 do
+            local eye = Instance.new("Part")
+            eye.Size = Vector3.new(0.6, 0.95, 0.35)
+            eye.Color = Color3.fromRGB(255, 10, 10)
+            eye.Material = Enum.Material.Neon
+            eye.Parent = head
+            eye.Position = head.Position + Vector3.new(i * 0.7, 0.5, -1.2)
+        end
+    end
+
+    local light = Instance.new("PointLight")
+    light.Color = Color3.fromRGB(255, 15, 15)
+    light.Brightness = 8
+    light.Range = 48
+    light.Parent = hrp
+end
+
+local function ApplyEntity(character)  -- "Normal" Mode Entity
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local hrp = character:WaitForChild("HumanoidRootPart", 5)
+    if not humanoid or not hrp then return end
+
+    humanoid.MaxHealth = 99999
+    humanoid.Health = 99999
+    humanoid.WalkSpeed = 22
+
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Color = Color3.fromRGB(0, 0, 0)
+            part.Material = Enum.Material.Neon
+            part.Transparency = 0.15
+        end
+    end
+
+    local head = character:FindFirstChild("Head")
+    if head then
+        head.Color = Color3.fromRGB(255, 0, 0)
+        head.Material = Enum.Material.Neon
+        head.Shape = Enum.PartType.Ball
+        head.Size = Vector3.new(2.4, 2.4, 2.4)
+    end
+
+    local light = Instance.new("PointLight")
+    light.Color = Color3.fromRGB(255, 50, 50)
+    light.Brightness = 6
+    light.Range = 35
+    light.Parent = hrp
+end
+
+local function MorphIntoUser(character, userId)
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid")
+    task.spawn(function()
+        local success, desc = pcall(function()
+            return Players:GetHumanoidDescriptionAsync(userId)
+        end)
+        if success and desc then
+            humanoid:ApplyDescription(desc)
+        end
+    end)
+end
+
+local function ScreenDistortAll(distort)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        local effect = Instance.new("ColorCorrectionEffect")
+        effect.Name = "ShadowDistort"
+        effect.Brightness = distort and 1.8 or 0
+        effect.Contrast = distort and 3 or 0
+        effect.Saturation = distort and -2 or 0
+        effect.TintColor = distort and Color3.fromRGB(100, 0, 0) or Color3.fromRGB(255,255,255)
+        effect.Parent = Lighting
+        if not distort then Debris:AddItem(effect, 2) end
+    end
+end
+
+local function PlayJumpscare(shadow, target)
+    if not target.Character then return end
+    local dist = (shadow.Character.HumanoidRootPart.Position - target.Character.HumanoidRootPart.Position).Magnitude
+    if dist < 18 then
+        local flash = Instance.new("ColorCorrectionEffect")
+        flash.Brightness = 4.5
+        flash.Contrast = 2.2
+        flash.Saturation = -2
+        flash.TintColor = Color3.fromRGB(255, 0, 0)
+        flash.Parent = Lighting
+        Debris:AddItem(flash, 0.4)
+    end
+end
+
+local function SetMode(player, mode)
+    activeMode[player] = mode
+    
+    if mode == "RedShadow" then
+        if player.Character then ApplyRedShadow(player.Character) end
+        ScreenDistortAll(false)
+        
+    elseif mode == "Morph" then
+        if player.Character then MorphIntoUser(player.Character, TARGET_USER_ID) end
+        ScreenDistortAll(true)
+        
+    elseif mode == "Entity" then   -- Normal = Entity
+        if player.Character then ApplyEntity(player.Character) end
+        ScreenDistortAll(false)
+    end
+end
+
+-- Remote
+RedShadowRemote.OnServerEvent:Connect(function(player, action)
+    if player.Name ~= "Ythrone" then return end
+    SetMode(player, action)
+end)
+
+-- Auto Start
+Players.PlayerAdded:Connect(function(player)
+    if player.Name == "Ythrone" then
+        task.wait(3)
+        SetMode(player, "RedShadow")
+    end
+end)
+
+-- Respawn Handler
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.8)
+        local mode = activeMode[player]
+        if mode == "RedShadow" then
+            ApplyRedShadow(char)
+        elseif mode == "Morph" then
+            MorphIntoUser(char, TARGET_USER_ID)
+        elseif mode == "Entity" then
+            ApplyEntity(char)
+        end
+    end)
+end)
